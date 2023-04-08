@@ -9,22 +9,88 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# Ex 1
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
+posterior_prop <- function(theta){
+  
+  return(
+    (theta^3)*(1-theta)^13+
+      (theta^4)*(1-theta)^12+
+      (theta^5)*(1-theta)^11
+  )
+}
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+parametric_space <- seq(0.001,1,0.001)
 
-```{r cars}
-summary(cars)
+plot(parametric_space,posterior_prop(theta=parametric_space),
+     type='l',ylab=)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+# Ex 5
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+
+# Ex 6
+
+```{r Gibbs}
+
+x_given_y <- function(y,x,C){
+  
+  
+  
+}
+
+y_given_x <- function(y,x,C){
+  numerator = NA
+  denominator = NA
+
+  #setting the numerator
+  if(0<=x & x<=1){
+    if(abs(x-y)<C){
+      numerator = 1
+    } else {
+      return(NA)
+    }
+  }
+  
+  #setting the denominator
+  if(0<x & x<C){
+    denominator <- x+C
+  }else{
+    if(C<=x & x<(1-C)){
+      denominator <- 2*C
+    }else{
+      if(x<=(1-C) & x<=1){
+        denominator <- 1-x+C
+      }
+    }
+  }
+  
+  return(numerator/denominator)
+}
+
+
+x=0.2 ; y=0.3 ; c = 0.4
+
+
+
+y_grid <- seq(0,1,0.01)
+
+y_value = rep(NA,length(y_grid))
+for (i in 1:length(y_grid)){
+  y_value[i] = y_given_x(y_grid[i],x = 0.2,C = 0.4)
+}
+
+plot(y_grid,y_given_x(y_grid,x = 0.2,C = 0.4))
+
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+# Ex 8 - 3.4
+
+
+# Ex 10 
