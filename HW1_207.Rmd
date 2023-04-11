@@ -24,7 +24,7 @@ posterior_prop <- function(theta){
 parametric_space <- seq(0.001,1,0.001)
 
 plot(parametric_space,posterior_prop(theta=parametric_space),
-     type='l',ylab=)
+     type='l',ylab='proportional to the density')
 ```
 
 
