@@ -30,6 +30,50 @@ plot(parametric_space,posterior_prop(theta=parametric_space),
 
 # Ex 5
 
+## a 
+```{r}
+y <- c(43,44,45,46.5,47.5)
+M=1000
+
+parametric_space <- seq(0,100,1/M)
+
+q_theta_given_y = function(x,theta){
+  result <- 1
+  for ( i in 1:length(x)){
+    result = result * (1/(1+(x[i]-theta)^2))
+  }
+  return(result/100)
+}
+
+
+## unormalized density
+unormalized_density <- q_theta_given_y(y,parametric_space)
+
+## summing the heights of the bins
+normalizing_constant <-  sum(unormalized_density/M)
+
+#plotting the normalized density
+plot(parametric_space,
+     unormalized_density/normalizing_constant,
+     type='l',
+     ylab = 'normalized density')
+
+normalized_density <-  unormalized_density/normalizing_constant
+```
+
+## b
+```{r}
+sample_theta <- sample(parametric_space,prob = normalized_density,size = 1000)
+hist(sample_theta)
+```
+
+## c
+```{r}
+# marginal distribution
+```
+
+
+
 
 # Ex 6
 
