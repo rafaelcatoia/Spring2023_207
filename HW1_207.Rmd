@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(dplyr) ; library(ggplot2)
 ```
 
 # Ex 1
@@ -113,8 +114,8 @@ gibbs_ex6 <- function(B=1000,constant){
 }
 
 sample_0.3 <- gibbs_ex6(B = 1000,0.3)
-sample_0.2 <- gibbs_ex6(B = 1000,0.2)
-sample_0.1 <- gibbs_ex6(B = 1000,0.1)
+sample_0.05 <- gibbs_ex6(B = 1000,0.05)
+sample_0.01 <- gibbs_ex6(B = 1000,0.01)
 
 
 par(mfrow=c(3,4))
@@ -128,25 +129,25 @@ abline(0,1,col='blue')
 acf(sample_0.3$x)
 acf(sample_0.3$y)
 
-constant<-0.2
-plot(sample_0.2$x,type='l',col=scales::alpha('deepskyblue',0.5))
-lines(sample_0.2$y,type='l',col=scales::alpha('firebrick',0.5))
-plot(sample_0.2)
+constant<-0.05
+plot(sample_0.05$x,type='l',col=scales::alpha('deepskyblue',0.5))
+lines(sample_0.05$y,type='l',col=scales::alpha('firebrick',0.5))
+plot(sample_0.05)
 abline(constant,1,col='blue')
 abline(-constant,1,col='blue')
 abline(0,1,col='blue')
-acf(sample_0.2$x)
-acf(sample_0.2$y)
+acf(sample_0.05$x)
+acf(sample_0.05$y)
 
-constant<-0.1
-plot(sample_0.1$x,type='l',col=scales::alpha('deepskyblue',0.5))
-lines(sample_0.1$y,type='l',col=scales::alpha('firebrick',0.5))
-plot(sample_0.1)
+constant<-0.01
+plot(sample_0.01$x,type='l',col=scales::alpha('deepskyblue',0.5))
+lines(sample_0.01$y,type='l',col=scales::alpha('firebrick',0.5))
+plot(sample_0.01)
 abline(constant,1,col='blue')
 abline(-constant,1,col='blue')
 abline(0,1,col='blue')
-acf(sample_0.1$x)
-acf(sample_0.1$y)
+acf(sample_0.01$x)
+acf(sample_0.01$y)
 
 ```
 
@@ -154,6 +155,99 @@ acf(sample_0.1$y)
 
 
 # Ex 8 - 3.4
+
+```{r}
+nsim <- 10000
+posterior_simulation <- data.frame(
+  p0 = rbeta(nsim,40,636),
+  p1 = rbeta(nsim,23,569)
+)
+
+
+posterior_simulation = 
+  posterior_simulation %>% 
+  mutate(odds_p0=p0/(1-p0),
+         odds_p1=p1/(1-p1),
+         odds_ratio = odds_p1/odds_p0)
+
+posterior_simulation %>% 
+  summarise(
+    Min = min(odds_ratio),
+    Mean = mean(odds_ratio),
+    Median = median(odds_ratio),
+    SD = sd(odds_ratio),
+    Max = max(odds_ratio)) %>% 
+  knitr::kable() %>% kableExtra::kable_styling()
+```
+
+```{r}
+posterior_simulation %>% 
+  ggplot(aes(x=odds_ratio))+
+  geom_histogram() + 
+  theme_bw()
+```
+
+
+```{r}
+y_bar_control = 39/674
+y_bar_treatment = 22/680
+
+#Posterior probability 
+sum(posterior_simulation$p0 > y_bar_control)/nsim
+
+sum(posterior_simulation$p1 > y_bar_treatment)/nsim
+
+sum(posterior_simulation$odds_ratio < 1)/nsim
+```
+
+
+## Now changing the sample size
+
+
+```{r}
+nsim <- 10000
+posterior_simulation <- data.frame(
+  p0 = rbeta(nsim,3,35),
+  p1 = rbeta(nsim,2,35)
+)
+
+
+posterior_simulation = 
+  posterior_simulation %>% 
+  mutate(odds_p0=p0/(1-p0),
+         odds_p1=p1/(1-p1),
+         odds_ratio = odds_p1/odds_p0)
+
+posterior_simulation %>% 
+  summarise(
+    Min = min(odds_ratio),
+    Mean = mean(odds_ratio),
+    Median = median(odds_ratio),
+    SD = sd(odds_ratio),
+    Max = max(odds_ratio)) %>% 
+  knitr::kable() %>% kableExtra::kable_styling()
+```
+
+```{r}
+posterior_simulation %>% 
+  ggplot(aes(x=odds_ratio))+
+  geom_histogram() + 
+  theme_bw()
+```
+
+
+```{r}
+y_bar_control = 2/34
+y_bar_treatment = 1/34
+
+#Posterior probability 
+sum(posterior_simulation$p0 > y_bar_control)/nsim
+
+sum(posterior_simulation$p1 > y_bar_treatment)/nsim
+
+sum(posterior_simulation$odds_ratio < 1)/nsim
+```
+
 
 
 # Ex 10 
@@ -169,7 +263,7 @@ propto_posterior <- function(y=1.5,theta){
 
 
 n_it <- 10000 #number of samples to be generated
-init_value <- 0 # initial value of theta 
+init_value <- 0.5 # initial value of theta 
 proposal_dist <- function(theta){rnorm(1,theta,sd=2)} # we are going to use the normal distribution as proposal
 post_sample <- rep(NA,n_it) #creating the vector that will store the samples
 post_sample[1]=init_value #the first draw of the posterior is the initial value
@@ -210,23 +304,24 @@ randWalk_MH_diagnostics <- function(posterior_sample){
 }
 
 randWalk_MH_diagnostics(post_sample)
-```
 
+summary(post_sample)
+```
 
 
 ```{r}
 
 n_it <- 10000 #number of samples to be generated
-init_value <- 0 # initial value of theta
-step <- 5
-burn_in = 1000
+init_value <- 0.5 # initial value of theta
+step <- 10
+burn_in = 10000
 proposal_dist <- function(theta){rnorm(1,theta,sd=2)} # we are going to use the normal distribution as proposal
 post_sample <- rep(NA,n_it) #creating the vector that will store the samples
 post_sample[1]=init_value #the first draw of the posterior is the initial value
 accepted=0 # counting the accepted values to see the acceptance rate
 
 # initializing the iteration
-for (i in 2:(n_it*5+1000)){
+for (i in 2:(n_it*5+burn_in)){
   candidate <- proposal_dist(post_sample[i-1]) 
   
   #calculating acceptance probability of the current point
@@ -245,13 +340,17 @@ for (i in 2:(n_it*5+1000)){
   }
 }
 
-accepted/(n_it*5+1000)
+accepted/(n_it*step+burn_in)
 
 
 post_sample <- post_sample[-c(1:burn_in)]
-post_sample <- post_sample[seq(1,length(post_sample),5)]
+post_sample <- post_sample[seq(1,length(post_sample),step)]
 
 
 randWalk_MH_diagnostics(post_sample)
+
+post_sample %>% summary()
+post_sample %>% sd()
+post_sample %>% length()
 ```
 
