@@ -84,8 +84,10 @@ mean(predictive_distribution) ; sd(predictive_distribution)
 
 # Ex 6
 
-```{r Gibbs}
+Here we are implementing the Gibbs Sampler.
 
+
+```{r Gibbs}
 x_given_y <- function(constant,y){
   a <- max(0,y-constant)
   b <- min(y+constant,1)
@@ -116,19 +118,25 @@ gibbs_ex6 <- function(B=1000,constant){
 sample_0.3 <- gibbs_ex6(B = 1000,0.3)
 sample_0.05 <- gibbs_ex6(B = 1000,0.05)
 sample_0.01 <- gibbs_ex6(B = 1000,0.01)
+```
 
 
-par(mfrow=c(3,4))
+## For C=0.3
+```{r Gibbs}
+par(mfrow=c(1,2))
 constant<-0.3
 plot(sample_0.3$x,type='l',col=scales::alpha('deepskyblue',0.5))
 lines(sample_0.3$y,type='l',col=scales::alpha('firebrick',0.5))
 plot(sample_0.3)
-abline(constant,1,col='blue')
-abline(-constant,1,col='blue')
-abline(0,1,col='blue')
-acf(sample_0.3$x)
-acf(sample_0.3$y)
+abline(constant,1,col='deepskyblue')
+abline(-constant,1,col='deepskyblue')
+abline(0,1,col='red')
+#acf(sample_0.3$x)
+#acf(sample_0.3$y)
+```
 
+## For C=0.05
+```{r Gibbs}
 constant<-0.05
 plot(sample_0.05$x,type='l',col=scales::alpha('deepskyblue',0.5))
 lines(sample_0.05$y,type='l',col=scales::alpha('firebrick',0.5))
@@ -136,19 +144,23 @@ plot(sample_0.05)
 abline(constant,1,col='blue')
 abline(-constant,1,col='blue')
 abline(0,1,col='blue')
-acf(sample_0.05$x)
-acf(sample_0.05$y)
+#acf(sample_0.05$x)
+#acf(sample_0.05$y)
+```
 
+
+## For C=0.01
+```{r Gibbs}
 constant<-0.01
 plot(sample_0.01$x,type='l',col=scales::alpha('deepskyblue',0.5))
 lines(sample_0.01$y,type='l',col=scales::alpha('firebrick',0.5))
 plot(sample_0.01)
-abline(constant,1,col='blue')
-abline(-constant,1,col='blue')
-abline(0,1,col='blue')
-acf(sample_0.01$x)
-acf(sample_0.01$y)
-
+abline(constant,1,col='deepskyblue')
+abline(-constant,1,col='deepskyblue')
+abline(0,1,col='red')
+#acf(sample_0.01$x)
+#acf(sample_0.01$y)
+par(mfrow=c(1,1))
 ```
 
 
@@ -255,10 +267,32 @@ sum(posterior_simulation$odds_ratio < 1)/nsim
 ```{r}
 # proportional to the posterior distribution that we
 # are going to draw samples from
+# Witout using log
 propto_posterior <- function(y=1.5,theta){
   numerator <- exp(-(1/2)*(y-theta)^2)
   denominator <- (1+theta^2)
   return(numerator/denominator)
+}
+
+# Using log
+propto_posterior <- function(y=1.5,theta){
+ numerator <- -(1/2)*(y-theta)^2
+ denominator <- -log(1+theta^2)
+ return(exp(numerator+denominator))
+}
+
+randWalk_MH_diagnostics <- function(posterior_sample){
+  lindseys_density  <- density(posterior_sample)
+  a <- round(min(lindseys_density$x),3) ; b <-round(max(lindseys_density$x),3)
+  grid<- seq(a,b,0.001)
+  par(mfrow=c(1,3))
+  plot(grid,propto_posterior(theta = grid,y=1.5),type='l',lty=2,lwd=1.5)
+  lines(density(posterior_sample),type='l',col='deepskyblue',lwd=1.5)
+  legend(a,0.5,legend = c('prop_posterior','sample_density'),
+         col=c('black','deepskyblue'),lwd = c(1.5,1.5), lty=c(2,1))
+  plot(posterior_sample,type = 'l')
+  acf(posterior_sample)
+  par(mfrow=c(1,3))
 }
 
 
@@ -290,18 +324,6 @@ for (i in 2:n_it){
 
 accepted/n_it
 
-randWalk_MH_diagnostics <- function(posterior_sample){
-  a <- round(density(posterior_sample)$x[1],3) ; b <- round(density(posterior_sample)$x[length(density(posterior_sample)$x)],3)
-  grid<- seq(a,b,0.001)
-  par(mfrow=c(1,3))
-  plot(grid,propto_posterior(theta = grid,y=1.5),type='l',lty=2,lwd=1.5)
-  lines(density(posterior_sample),type='l',col='deepskyblue',lwd=1.5)
-  legend(a,0.5,legend = c('prop_posterior','sample_density'),
-         col=c('black','deepskyblue'),lwd = c(1.5,1.5), lty=c(2,1))
-  plot(posterior_sample,type = 'l')
-  acf(posterior_sample)
-  par(mfrow=c(1,3))
-}
 
 randWalk_MH_diagnostics(post_sample)
 
@@ -311,17 +333,18 @@ summary(post_sample)
 
 ```{r}
 
-n_it <- 10000 #number of samples to be generated
-init_value <- 0.5 # initial value of theta
-step <- 10
+n_it <- 1000 #number of samples to be generated
+init_value <- 0 # initial value of theta
+step <- 5
 burn_in = 10000
+total_samples = burn_in + n_it*step
 proposal_dist <- function(theta){rnorm(1,theta,sd=2)} # we are going to use the normal distribution as proposal
-post_sample <- rep(NA,n_it) #creating the vector that will store the samples
+post_sample <- rep(NA,total_samples) #creating the vector that will store the samples
 post_sample[1]=init_value #the first draw of the posterior is the initial value
 accepted=0 # counting the accepted values to see the acceptance rate
 
 # initializing the iteration
-for (i in 2:(n_it*5+burn_in)){
+for (i in 2:total_samples){
   candidate <- proposal_dist(post_sample[i-1]) 
   
   #calculating acceptance probability of the current point
@@ -340,17 +363,17 @@ for (i in 2:(n_it*5+burn_in)){
   }
 }
 
-accepted/(n_it*step+burn_in)
+#acceptance rate
+accepted/total_samples
 
 
-post_sample <- post_sample[-c(1:burn_in)]
-post_sample <- post_sample[seq(1,length(post_sample),step)]
+post_sample_clean <- post_sample[-c(1:burn_in)][seq(1,length(post_sample)-burn_in,step)]
 
+#verifying if the length of the draw matches with the desired number
+post_sample_clean %>% length()
+randWalk_MH_diagnostics(post_sample_clean)
 
-randWalk_MH_diagnostics(post_sample)
-
-post_sample %>% summary()
-post_sample %>% sd()
-post_sample %>% length()
+post_sample_clean %>% summary()
+post_sample_clean %>% sd()
 ```
 
