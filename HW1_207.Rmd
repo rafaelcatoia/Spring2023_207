@@ -260,6 +260,222 @@ sum(posterior_simulation$p1 > y_bar_treatment)/nsim
 sum(posterior_simulation$odds_ratio < 1)/nsim
 ```
 
+# Ex 9 
+
+
+## a)
+
+Lets use as non-informative prior $p(\mu,\sigma) \propto \frac{1}{\sigma^2}$, our data-sampling distribution is given by $p(y | \mu,\sigma^2)\sim N(\mu,\sigma^2)$.
+
+Thus, our posterior distribution is going to be:
+
+$$p(\mu,\sigma^2) = p(\mu | \sigma^2 , y ) p(\sigma^2 | y) $$
+being $\mu | \sigma^2 , y\sim N(\bar{y},\frac{\sigma^2}{n}$ and $\sigma^2 | y \sim Inv \chi^2 (n-1, s^2)$
+
+```{r}
+y = c(10,10,12,11,9)
+ybar = mean(y)
+n = length(y)
+S2 = var(y)
+
+set.seed(1234)
+
+generate_posterior_untruncated <- function(y){
+  ybar = mean(y)
+  n = length(y)
+  S2 = var(y)
+  sigma2 <- invgamma::rinvchisq(1,n-1,S2)
+  mu <- rnorm(1,mean=ybar,sd=sqrt(sigma2))
+  
+  return(data.frame(mu,sigma2))
+}
+
+#now, drawing a sample from \mu,\sigma^2
+generate_posterior_untruncated(y)
+
+
+density_posterior_untruncated <- function(mu,sigma2,y){
+  ybar = mean(y)
+  S2 = var(y)
+  n=length(y)
+  return(
+    dnorm(mu,mean = ybar,sd=sqrt(sigma2)/sqrt(n))*
+      invgamma::dinvchisq(sigma2,df = n-1,ncp = S2)
+  )
+}
+```
+
+## b)
+Now our likelihood is different, so does he posterior which is given by: $p(\mu,\sigma^2 | y ) \propto \frac{1}{\sigma^2}\prod_{i=1}^{n} \left[ \Phi(\frac{y_i-\mu+0.5}{\sigma}) - \Phi(\frac{y_i+\mu - 0.5}{\sigma}) \right]$
+
+being $\mu | \sigma^2 , y\sim N(\bar{y},\frac{\sigma^2}{n})$ and $\sigma^2 | y \sim Inv \chi^2 (n-1, s^2)$
+
+
+```{r}
+#proportional posterior density
+prop_density_post_truncated <- function(y,sigma2,mu){
+  prop_density <- 1
+  for(i in 1:length(y)){
+    
+    prop_density = prop_density *
+      (pnorm(y[i]+0.5,mean = mu,sd = sqrt(sigma2))  -
+         pnorm(y[i]-0.5,mean = mu,sd = sqrt(sigma2)))
+  }
+  return((1/sigma2)*prop_density)
+}
+
+#### MCMC -------------------------------------------------------
+## Metropolis Hastings ------------------------------------------
+# candidate will be the posterior without truncation
+
+n_it <- 1000 #number of samples to be generated
+step <- 10
+burn_in = 10000
+total_samples = burn_in + n_it*step
+init_value <- c(10,4) # initial value of theta
+accepted=0
+post_samp_truncated <- 
+  data.frame(mu=rep(NA,n_it),
+             sigma2=rep(NA,n_it))
+
+## Let's use as candidate the posterior
+## pretending unrounded measurements
+post_samp_truncated[1,]<-init_value
+for (i in 2:total_samples){
+  candidate <- generate_posterior_untruncated(y=y)
+  
+  ## Calculating R
+  #numerators
+  num1 = prop_density_post_truncated(
+    y = y,
+    sigma2 = candidate$sigma2,
+    mu = candidate$mu)
+  
+  num2 = density_posterior_untruncated(
+    y = y,
+    mu=candidate$mu,
+    sigma2 = candidate$sigma2
+  )
+  
+  #denominators
+  den1 = prop_density_post_truncated(
+    y = y,
+    sigma2 = post_samp_truncated[i-1,]$sigma2,
+    mu = post_samp_truncated[i-1,]$mu)
+  
+  den2 = density_posterior_untruncated(
+    y = y,
+    mu=post_samp_truncated[i-1,]$mu,
+    sigma2 = post_samp_truncated[i-1,]$sigma2
+  )
+  
+  ## r
+  ## using the log since the densities can be very small
+  r=min(1,exp(log(num1)+log(num2)-(log(den1)+log(den2))))
+  
+  if(runif(1)>r){
+    # if not accepted, we will start the new iteration with the same point
+    post_samp_truncated[i,] <- post_samp_truncated[i-1,]
+  } else {
+    # if accepted, we will move our chain to the candidate point and start the 
+    # next iteration from this point
+    post_samp_truncated[i,] <- candidate
+    accepted<-accepted+1
+  }
+}
+
+## acceptance rate = 
+accepted/total_samples
+
+## brushing the sample
+post_sample_clean <- post_samp_truncated[-c(1:burn_in),][seq(1,total_samples-burn_in,by=step),]
+
+par(mfrow=c(2,1))
+plot(post_sample_clean$mu,type='l')
+plot(post_sample_clean$sigma2,type='l')
+par(mfrow=c(1,1))
+acf(post_sample_clean)
+```
+
+
+## c)
+
+```{r}
+sample_posterior_untruncated <- data.frame(
+  mu=rep(NA,n_it),
+  sigma2=rep(NA,n_it)
+)
+
+for(i in 1:n_it){
+  sample_posterior_untruncated[i,] <- generate_posterior_untruncated(y=y)
+}
+
+
+posterior_samples <- data.frame(
+  mu_untruncated = sample_posterior_untruncated$mu,
+  mu_truncated = post_sample_clean$mu,
+  sigma2_untruncated = sample_posterior_untruncated$sigma2,
+  sigma2_truncated = post_sample_clean$sigma2
+)
+
+
+data.frame(
+  Mean =  posterior_samples %>% 
+    summarise(Untruncated = mean(mu_untruncated),
+              Truncated = mean(mu_truncated)) %>% t(),
+  SD =posterior_samples %>% 
+    summarise(Untruncated = sd(mu_untruncated),
+              Truncated = sd(mu_truncated)) %>% t(),
+  Percentile_0.5 =  posterior_samples %>% 
+    summarise(Untruncated = quantile(mu_untruncated,0.05),
+              Truncated = quantile(mu_truncated,0.1)) %>% t(),
+  Percentile_1 = posterior_samples %>% 
+    summarise(Untruncated = quantile(mu_untruncated,0.1),
+              Truncated = quantile(mu_truncated,0.05)) %>% t(),
+  Percentile_25 =   posterior_samples %>% 
+    summarise(Untruncated = quantile(mu_untruncated,0.25),
+              Truncated = quantile(mu_truncated,0.25)) %>% t(),
+  Percentile_50 = posterior_samples %>% 
+    summarise(Untruncated = quantile(mu_untruncated,0.5),
+              Truncated = quantile(mu_truncated,0.5)) %>% t()
+) %>% knitr::kable(caption = 'For mu') %>% kableExtra::kable_styling()
+```
+
+
+```{r}
+data.frame(
+  Mean =  posterior_samples %>% 
+    summarise(Untruncated = mean(sigma2_untruncated),
+              Truncated = mean(sigma2_truncated)) %>% t(),
+  SD =posterior_samples %>% 
+    summarise(Untruncated = sd(sigma2_untruncated),
+              Truncated = sd(sigma2_truncated)) %>% t(),
+  Percentile_0.5 =  posterior_samples %>% 
+    summarise(Untruncated = quantile(sigma2_untruncated,0.05),
+              Truncated = quantile(sigma2_truncated,0.1)) %>% t(),
+  Percentile_1 = posterior_samples %>% 
+    summarise(Untruncated = quantile(sigma2_untruncated,0.1),
+              Truncated = quantile(sigma2_truncated,0.05)) %>% t(),
+  Percentile_25 =   posterior_samples %>% 
+    summarise(Untruncated = quantile(sigma2_untruncated,0.25),
+              Truncated = quantile(sigma2_truncated,0.25)) %>% t(),
+  Percentile_50 = posterior_samples %>% 
+    summarise(Untruncated = quantile(sigma2_untruncated,0.5),
+              Truncated = quantile(sigma2_truncated,0.5)) %>% t()
+) %>% knitr::kable(caption = 'For sigma2') %>% kableExtra::kable_styling()
+```
+
+Now, the density plot:
+
+```{r}
+
+```
+
+
+
+## d)
+
+
 
 
 # Ex 10 
