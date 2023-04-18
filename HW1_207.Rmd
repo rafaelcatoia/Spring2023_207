@@ -468,6 +468,51 @@ data.frame(
 Now, the density plot:
 
 ```{r}
+#density untruncated
+mu_grid <- seq(5,15,0.1)
+sigma2_grid <- seq(0.01,10,0.1)
+density_values <- matrix(NA,nrow=length(mu_grid),ncol=length(sigma2_grid)) 
+
+for(i in 1:length(mu_grid)){
+  for(j in 1:length(sigma2_grid)){
+  cat(paste(i,j),'\n')
+    density_values[i,j] <- density_posterior_untruncated(
+      y = y,
+      mu = mu_grid[i],
+      sigma2 = sigma2_grid[j]
+    )
+  }
+}
+
+contours <- c(0.001,.01,seq(.1,.9,.1))
+contour(
+  x = mu_grid,
+  y = log(sqrt(sigma2_grid)),
+  z = density_values,
+  levels=contours
+  )  
+
+# sample_posterior_untruncated$density <-density_untruncated
+# sample_posterior_untruncated %>% 
+#   ggplot2::ggplot(aes(x=mu,y=sigma2))+geom_density2d()
+```
+
+
+```{r}
+#density truncad
+density_truncated <- rep(NA,nrow(post_sample_clean))
+a
+for(i in 1:nrow(density_truncated)){
+  density_truncated[i] <- prop_density_post_truncated(
+    y = y,
+    mu = post_sample_clean$mu[i],
+    sigma2 = post_sample_clean$sigma2[i]
+  )
+}
+
+
+post_sample_clean %>% 
+  ggplot2::ggplot(aes(x=mu,y=sigma2))+geom_density2d()
 
 ```
 
