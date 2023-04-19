@@ -2,7 +2,7 @@
 title: "HW1_207"
 author: "RafaelCatoiaPulgrossi"
 date: "2023-04-06"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -14,14 +14,12 @@ library(dplyr) ; library(ggplot2)
 
 ```{r}
 posterior_prop <- function(theta){
-  
   return(
     (theta^3)*(1-theta)^13+
       (theta^4)*(1-theta)^12+
       (theta^5)*(1-theta)^11
   )
 }
-
 parametric_space <- seq(0.001,1,0.001)
 
 plot(parametric_space,posterior_prop(theta=parametric_space),
@@ -64,14 +62,16 @@ normalized_density <-  unormalized_density/normalizing_constant
 
 ## b
 ```{r}
-sample_theta <- sample(parametric_space,prob = normalized_density,size = 1000)
+sample_theta <- sample(parametric_space,
+                       prob = normalized_density,size = 1000)
 hist(sample_theta)
 ```
 
 ## c
 ```{r}
 set.seed(57)
-predictive_distribution <- rcauchy(1000,scale = 1,location = sample_theta)
+predictive_distribution <- 
+  rcauchy(1000,scale = 1,location = sample_theta)
 plot(density(predictive_distribution))
 
 plot(density(predictive_distribution),xlim=c(30,60))
@@ -79,13 +79,9 @@ abline(v=mean(y),col='forestgreen')
 mean(predictive_distribution) ; sd(predictive_distribution)
 ```
 
-
-
-
 # Ex 6
 
 Here we are implementing the Gibbs Sampler.
-
 
 ```{r Gibbs}
 x_given_y <- function(constant,y){
@@ -128,8 +124,6 @@ constant<-0.3
 plot(sample_0.3$x,type='l',col=scales::alpha('deepskyblue',0.5))
 lines(sample_0.3$y,type='l',col=scales::alpha('firebrick',0.5))
 plot(sample_0.3)
-abline(constant,1,col='deepskyblue')
-abline(-constant,1,col='deepskyblue')
 abline(0,1,col='red')
 #acf(sample_0.3$x)
 #acf(sample_0.3$y)
@@ -141,8 +135,6 @@ constant<-0.05
 plot(sample_0.05$x,type='l',col=scales::alpha('deepskyblue',0.5))
 lines(sample_0.05$y,type='l',col=scales::alpha('firebrick',0.5))
 plot(sample_0.05)
-abline(constant,1,col='blue')
-abline(-constant,1,col='blue')
 abline(0,1,col='blue')
 #acf(sample_0.05$x)
 #acf(sample_0.05$y)
@@ -155,16 +147,13 @@ constant<-0.01
 plot(sample_0.01$x,type='l',col=scales::alpha('deepskyblue',0.5))
 lines(sample_0.01$y,type='l',col=scales::alpha('firebrick',0.5))
 plot(sample_0.01)
-abline(constant,1,col='deepskyblue')
-abline(-constant,1,col='deepskyblue')
 abline(0,1,col='red')
 #acf(sample_0.01$x)
 #acf(sample_0.01$y)
 par(mfrow=c(1,1))
 ```
 
-
-
+When $C$ is small, the chain is very dependent on the past observations and as we can see on the last two plots, it hasn't visited the entire parametric space yet, so we would need much more samples in order to solve those two problems.
 
 # Ex 8 - 3.4
 
@@ -174,7 +163,6 @@ posterior_simulation <- data.frame(
   p0 = rbeta(nsim,40,636),
   p1 = rbeta(nsim,23,569)
 )
-
 
 posterior_simulation = 
   posterior_simulation %>% 
@@ -270,7 +258,7 @@ Lets use as non-informative prior $p(\mu,\sigma) \propto \frac{1}{\sigma^2}$, ou
 Thus, our posterior distribution is going to be:
 
 $$p(\mu,\sigma^2) = p(\mu | \sigma^2 , y ) p(\sigma^2 | y) $$
-being $\mu | \sigma^2 , y\sim N(\bar{y},\frac{\sigma^2}{n}$ and $\sigma^2 | y \sim Inv \chi^2 (n-1, s^2)$
+being $\mu | \sigma^2 , y\sim N(\bar{y},\frac{\sigma^2}{n})$ and $\sigma^2 | y \sim Inv \chi^2 (n-1, s^2)$
 
 ```{r}
 y = c(10,10,12,11,9)
@@ -278,21 +266,25 @@ ybar = mean(y)
 n = length(y)
 S2 = var(y)
 
-set.seed(1234)
 
+set.seed(1234)
 generate_posterior_untruncated <- function(y){
   ybar = mean(y)
   n = length(y)
   S2 = var(y)
-  sigma2 <- invgamma::rinvchisq(1,n-1,S2)
-  mu <- rnorm(1,mean=ybar,sd=sqrt(sigma2))
-  
+  sigma2 <- (n-1)*S2/rchisq(n = 1,df = (n-1))
+  mu <- rnorm(1,mean=ybar,sd=sqrt(sigma2)/sqrt(n))
   return(data.frame(mu,sigma2))
 }
+```
 
-#now, drawing a sample from \mu,\sigma^2
-generate_posterior_untruncated(y)
 
+```{r}
+#Calculating the posterior density for the untruncated likelihood
+
+dchisqncp <- function(x, df, ncp){
+  (df/2)^(df/2)/gamma(df/2) * sqrt(ncp)^df * x^(-df/2 - 1) * exp(-df*ncp/(2*x))
+}
 
 density_posterior_untruncated <- function(mu,sigma2,y){
   ybar = mean(y)
@@ -300,7 +292,7 @@ density_posterior_untruncated <- function(mu,sigma2,y){
   n=length(y)
   return(
     dnorm(mu,mean = ybar,sd=sqrt(sigma2)/sqrt(n))*
-      invgamma::dinvchisq(sigma2,df = n-1,ncp = S2)
+      dchisqncp(sigma2,df = n-1,ncp = S2)
   )
 }
 ```
@@ -308,21 +300,21 @@ density_posterior_untruncated <- function(mu,sigma2,y){
 ## b)
 Now our likelihood is different, so does he posterior which is given by: $p(\mu,\sigma^2 | y ) \propto \frac{1}{\sigma^2}\prod_{i=1}^{n} \left[ \Phi(\frac{y_i-\mu+0.5}{\sigma}) - \Phi(\frac{y_i+\mu - 0.5}{\sigma}) \right]$
 
-being $\mu | \sigma^2 , y\sim N(\bar{y},\frac{\sigma^2}{n})$ and $\sigma^2 | y \sim Inv \chi^2 (n-1, s^2)$
-
-
 ```{r}
 #proportional posterior density
 prop_density_post_truncated <- function(y,sigma2,mu){
-  prop_density <- 1
+  prop_density <- 0
   for(i in 1:length(y)){
-    
-    prop_density = prop_density *
-      (pnorm(y[i]+0.5,mean = mu,sd = sqrt(sigma2))  -
-         pnorm(y[i]-0.5,mean = mu,sd = sqrt(sigma2)))
+    prop_density =  prop_density +
+      log(
+        (pnorm((y[i]+0.5-mu)/sqrt(sigma2),mean = 0,sd = 1,)  -
+         pnorm((y[i]-0.5-mu)/sqrt(sigma2),mean = 0,sd = 1))
+         )
   }
-  return((1/sigma2)*prop_density)
+  return(exp(prop_density))
 }
+
+
 
 #### MCMC -------------------------------------------------------
 ## Metropolis Hastings ------------------------------------------
@@ -330,9 +322,9 @@ prop_density_post_truncated <- function(y,sigma2,mu){
 
 n_it <- 1000 #number of samples to be generated
 step <- 10
-burn_in = 10000
+burn_in = 1000
 total_samples = burn_in + n_it*step
-init_value <- c(10,4) # initial value of theta
+init_value <- generate_posterior_untruncated(y=y) # initial value of theta
 accepted=0
 post_samp_truncated <- 
   data.frame(mu=rep(NA,n_it),
@@ -344,7 +336,7 @@ post_samp_truncated[1,]<-init_value
 for (i in 2:total_samples){
   candidate <- generate_posterior_untruncated(y=y)
   
-  ## Calculating R
+  ## Calculating r
   #numerators
   num1 = prop_density_post_truncated(
     y = y,
@@ -372,12 +364,13 @@ for (i in 2:total_samples){
   ## r
   ## using the log since the densities can be very small
   r=min(1,exp(log(num1)+log(num2)-(log(den1)+log(den2))))
+  #r=min(1,exp(log(num1)-log(den1)))
   
   if(runif(1)>r){
-    # if not accepted, we will start the new iteration with the same point
+    # rejected! we will start the new iteration with the same point
     post_samp_truncated[i,] <- post_samp_truncated[i-1,]
   } else {
-    # if accepted, we will move our chain to the candidate point and start the 
+    # accepted! we will move our chain to the candidate point and start the 
     # next iteration from this point
     post_samp_truncated[i,] <- candidate
     accepted<-accepted+1
@@ -410,14 +403,12 @@ for(i in 1:n_it){
   sample_posterior_untruncated[i,] <- generate_posterior_untruncated(y=y)
 }
 
-
 posterior_samples <- data.frame(
   mu_untruncated = sample_posterior_untruncated$mu,
   mu_truncated = post_sample_clean$mu,
-  sigma2_untruncated = sample_posterior_untruncated$sigma2,
-  sigma2_truncated = post_sample_clean$sigma2
+  sigma2_untruncated = sqrt(sample_posterior_untruncated$sigma2),
+  sigma2_truncated = sqrt(post_sample_clean$sigma2)
 )
-
 
 data.frame(
   Mean =  posterior_samples %>% 
@@ -462,20 +453,20 @@ data.frame(
   Percentile_50 = posterior_samples %>% 
     summarise(Untruncated = quantile(sigma2_untruncated,0.5),
               Truncated = quantile(sigma2_truncated,0.5)) %>% t()
-) %>% knitr::kable(caption = 'For sigma2') %>% kableExtra::kable_styling()
+) %>% knitr::kable(caption = 'For sigma') %>% kableExtra::kable_styling()
 ```
 
 Now, the density plot:
 
 ```{r}
 #density untruncated
-mu_grid <- seq(5,15,0.1)
-sigma2_grid <- seq(0.01,10,0.1)
+mu_grid <- seq(8,13,0.01)
+sigma2_grid <- seq(0.01,8,0.01)
 density_values <- matrix(NA,nrow=length(mu_grid),ncol=length(sigma2_grid)) 
 
 for(i in 1:length(mu_grid)){
   for(j in 1:length(sigma2_grid)){
-  cat(paste(i,j),'\n')
+  #cat(paste(i,j),'\n')
     density_values[i,j] <- density_posterior_untruncated(
       y = y,
       mu = mu_grid[i],
@@ -484,41 +475,58 @@ for(i in 1:length(mu_grid)){
   }
 }
 
-contours <- c(0.001,.01,seq(.1,.9,.1))
+par(mfrow=c(1,2))
 contour(
   x = mu_grid,
   y = log(sqrt(sigma2_grid)),
   z = density_values,
-  levels=contours
   )  
-
-# sample_posterior_untruncated$density <-density_untruncated
-# sample_posterior_untruncated %>% 
-#   ggplot2::ggplot(aes(x=mu,y=sigma2))+geom_density2d()
 ```
 
 
 ```{r}
-#density truncad
-density_truncated <- rep(NA,nrow(post_sample_clean))
-a
-for(i in 1:nrow(density_truncated)){
-  density_truncated[i] <- prop_density_post_truncated(
-    y = y,
-    mu = post_sample_clean$mu[i],
-    sigma2 = post_sample_clean$sigma2[i]
-  )
+#density untruncated
+density_values_truncated <- matrix(NA,nrow=length(mu_grid),ncol=length(sigma2_grid)) 
+
+for(i in 1:length(mu_grid)){
+  for(j in 1:length(sigma2_grid)){
+  #cat(paste(i,j),'\n')
+    density_values_truncated[i,j] <- prop_density_post_truncated(
+      y = y,
+      mu = mu_grid[i],
+      sigma2 = sigma2_grid[j]
+    )
+  }
 }
 
-
-post_sample_clean %>% 
-  ggplot2::ggplot(aes(x=mu,y=sigma2))+geom_density2d()
-
+#contours <- c(seq(0.05,0.95,0.1))
+#this one is not normalized! but since we would divide by a constant we can still use the sape to see what is going on.
+contour(
+  x = mu_grid,
+  y = log(sqrt(sigma2_grid)),
+  z = density_values_truncated#,
+  #levels=contours
+  )
+par(mfrow=c(1,1))
 ```
 
-
-
 ## d)
+
+
+
+For each $i$, $z_i$ is the the unrounded value of $y_i$. Therefore, we can generate a sample of $z_i$ conditional on $y_i$ by generating from a truncated normal distribution between $y_i-5$ and $y_i+5$ with parameters from our posterior sample.
+
+```{r}
+z_samples <- matrix(NA, n_it, 5)
+for (i in 1:5) {
+  z_samples[, i] <- truncnorm::rtruncnorm(
+    n_it, a = y[i] - 0.5, b = y[i] + 0.5,
+    mean = sample_posterior_untruncated$mu, sd = sample_posterior_untruncated$sigma2)
+}
+
+((z_samples[, 2] - z_samples[, 1])^2) %>% mean()
+```
+
 
 
 
