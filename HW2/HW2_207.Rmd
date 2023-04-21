@@ -1,0 +1,39 @@
+---
+title: "HW1_207"
+author: "RafaelCatoiaPulgrossi"
+date: "2023-04-06"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr) ; library(ggplot2)
+```
+
+# EX1
+
+![](Ex1.png)
+
+## a)
+
+## b)
+
+## c)
+
+## d)
+
+# EX2
+
+![](Ex2.png)
+
+# EX3
+
+![](Ex3.png) ![](Ex3pt2.png)
+
+# EX4
+
+![](Ex4.png)
+
+# EX5
+
+![](Ex5.png)
