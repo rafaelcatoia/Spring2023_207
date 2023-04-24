@@ -12,9 +12,160 @@ library(dplyr) ; library(ggplot2)
 
 # EX1
 
-![](Ex1.png)
+![](Ex1.png){width="1000"}
 
 ## a)
+
+```{r}
+#tests vary from 200 and 800
+# mean around 500, sd around 100
+# flat prior on mu - no prior reason to believe that any of the programs wars more effective
+# flat prior on tau
+
+##data 
+
+df_observed <- data.frame(
+  school = c("A","B","C","D","E","F","G","H"),
+  yj = c(28,8,-3,7,-1,1,18,12),
+  sigma2j = c(15,10,16,11,9,11,10,18)^2
+)
+
+## functions { begin }
+V_mu <- function(tau,sigma2_j=df_observed$sigma2j){
+  J = length(sigma2_j)
+  output <- 0
+  for(i in 1:J){
+  output <- output + 1/(sigma2_j[i]+tau^2)
+  }
+  return(1/output)
+}
+
+mu_hat <- function(tau,sigma2_j=df_observed$sigma2j,
+                   ybar_j = df_observed$yj){
+  J = length(sigma2_j)
+  output <- 0
+  numerator <- 0
+  denominator <- 0 
+  for(i in 1:J){
+    ## numerator
+    weight = 1/(sigma2_j[i]+tau^2)
+    numerator <- numerator + weight * ybar_j[i]
+    denominator <- denominator + weight
+  }
+  return(numerator/denominator)
+}
+
+
+## posterior of tau given y
+p_tau_g_y <- function(tau,
+                      sigma2_j=df_observed$sigma2j,
+                      ybar_j = df_observed$yj){
+  V_mu <- V_mu(tau)
+  mu_hat <- mu_hat(tau,sigma2_j=df_observed$sigma2j,
+                   ybar_j = df_observed$yj)
+  
+  J = length(sigma2_j)
+  
+  sum_ln = 0
+  ## prod
+  for(i in 1:J){
+    sum_ln = sum_ln -0.5 * log(sigma2_j[i]+tau^2) -
+      0.5* ((ybar_j[i]-mu_hat)^2/(sigma2_j[i]+tau^2)) 
+  }
+  return(sqrt(V_mu)*exp(sum_ln))
+}
+
+## mean for theta:
+hat_theta_j <- function(tau,mu,
+                      sigma2_j=df_observed$sigma2j,
+                      ybar_j = df_observed$yj){
+  numerator <- ybar_j/sigma2_j + mu/(tau^2)
+  denominator <- 1/sigma2_j + 1/(tau^2)
+  return(numerator/denominator)
+}
+
+## sd for theta
+V_j <- function(tau,
+                      sigma2_j=df_observed$sigma2j,
+                      ybar_j = df_observed$yj){
+  return(1/(1/sigma2_j + 1/(tau^2)))
+}
+
+## functions { end }
+```
+
+```{r}
+tau_grid <- seq(0.01,45,0.01)
+
+propto_density_p_tau_g_y <- p_tau_g_y(tau_grid)
+normalized_density_p_tau_g_y <- propto_density_p_tau_g_y/sum(propto_density_p_tau_g_y)
+plot(tau_grid,normalized_density_p_tau_g_y,type='l')
+```
+
+```{r Generating}
+
+generating_joint_post <- function(n=2){
+  tau <- sample(tau_grid,size = n,
+                prob =normalized_density_p_tau_g_y,
+                replace = T)
+  theta_j <- data.frame(matrix(NA,nrow = n,ncol=8))
+  mu_post <- rep(NA,n)
+  for(i in 1:n){
+    mu_post[i] <- rnorm(n=1,mean = mu_hat(tau = tau[i]),
+                        sd = sqrt(V_mu(tau = tau[i])))
+    
+    aux_hat_theta_j<-hat_theta_j(tau = tau[i],
+                                 mu = mu_post[i])
+    aux_V_j<- V_j(tau = tau[i])
+    for(j in 1:8){
+      theta_j[i,j] <- rnorm(n=1,mean = aux_hat_theta_j[j],
+                            sd = sqrt(aux_V_j[j]))
+    }
+  }
+  output <- data.frame(
+    tau = tau,
+    mu = mu_post
+  ) %>% bind_cols(theta_j)
+  return(output)
+}
+
+sample_posterior <- generating_joint_post(5000)
+```
+
+## i)
+
+```{r}
+theta_sample_posterior <- sample_posterior %>% select(-tau,-mu) 
+
+best_school <- apply(theta_sample_posterior,1,which.max) %>% table() %>% data.frame() %>% pull()
+
+apply(theta_sample_posterior[,c(i,j)],1,which.max) %>% table() %>% data.frame() %>% pull()
+
+best_school/sum(best_school)
+###TODOs
+```
+
+## ii)
+
+```{pariwise <- matrix(NA,8,8)}
+
+## pairwise comparison
+for (i in 1:8){
+  for(j in 1:8){
+    if(i!=j){
+      post_prob <- apply(theta_sample_posterior[,c(i,j)],1,which.max) %>%
+        table() %>% data.frame() %>% pull()
+      post_prob <- post_prob/5000
+      pariwise[i,j] <- post_prob[1]
+      pariwise[j,i] <- post_prob[2]
+    }
+  }
+}
+
+colnames(pariwise) = rownames(pariwise) = c('A','B','C','D','E','F','G','H')
+
+pariwise %>% as.data.frame() %>% knitr::kable(,caption = 'Posterior probabilities') %>% kableExtra::kable_styling()
+```
 
 ## b)
 
@@ -24,16 +175,16 @@ library(dplyr) ; library(ggplot2)
 
 # EX2
 
-![](Ex2.png)
+![](Ex2.png){width="1000"}
 
 # EX3
 
-![](Ex3.png) ![](Ex3pt2.png)
+![](Ex3.png){width="1000"} ![](Ex3pt2.png){width="1000"}
 
 # EX4
 
-![](Ex4.png)
+![](Ex4.png){width="1000"}
 
 # EX5
 
-![](Ex5.png)
+![](Ex5.png){width="1000"}
