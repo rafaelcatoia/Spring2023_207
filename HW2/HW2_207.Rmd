@@ -147,7 +147,8 @@ best_school/sum(best_school)
 
 ## ii)
 
-```{pariwise <- matrix(NA,8,8)}
+```{r}
+pariwise <- matrix(NA,8,8)
 
 ## pairwise comparison
 for (i in 1:8){
@@ -169,9 +170,123 @@ pariwise %>% as.data.frame() %>% knitr::kable(,caption = 'Posterior probabilitie
 
 ## b)
 
+```{r}
+generating_joint_post <- function(n=2){
+  tau <- rep(10^7,n) #sample(tau_grid,size = n,
+             #   prob =normalized_density_p_tau_g_y,
+             #   replace = T)
+  theta_j <- data.frame(matrix(NA,nrow = n,ncol=8))
+  mu_post <- rep(NA,n)
+  for(i in 1:n){
+    mu_post[i] <- rnorm(n=1,mean = mu_hat(tau = tau[i]),
+                        sd = sqrt(V_mu(tau = tau[i])))
+    
+    aux_hat_theta_j<-hat_theta_j(tau = tau[i],
+                                 mu = mu_post[i])
+    aux_V_j<- V_j(tau = tau[i])
+    for(j in 1:8){
+      theta_j[i,j] <- rnorm(n=1,mean = aux_hat_theta_j[j],
+                            sd = sqrt(aux_V_j[j]))
+    }
+  }
+  output <- data.frame(
+    tau = tau,
+    mu = mu_post
+  ) %>% bind_cols(theta_j)
+  return(output)
+}
+
+sample_post_b <- generating_joint_post(5000)
+
+
+sample_post_b <- sample_post_b %>% select(-tau,-mu) 
+
+best_school <- apply(sample_post_b,1,which.max) %>% table() %>% data.frame() %>% pull()
+
+best_school/sum(best_school)
+```
+
+```{r}
+pariwise <- matrix(NA,8,8)
+
+## pairwise comparison
+for (i in 1:8){
+  for(j in 1:8){
+    if(i!=j){
+      post_prob <- apply(sample_post_b[,c(i,j)],1,which.max) %>%
+        table() %>% data.frame() %>% pull()
+      post_prob <- post_prob/5000
+      pariwise[i,j] <- post_prob[1]
+      pariwise[j,i] <- post_prob[2]
+    }
+  }
+}
+
+colnames(pariwise) = rownames(pariwise) = c('A','B','C','D','E','F','G','H')
+
+pariwise %>% as.data.frame() %>% knitr::kable(,caption = 'Posterior probabilities') %>% kableExtra::kable_styling()
+```
+
 ## c)
 
 ## d)
+
+```{r}
+generating_joint_post <- function(n=2){
+  tau <- rep(1/10^7,n) #sample(tau_grid,size = n,
+             #   prob =normalized_density_p_tau_g_y,
+             #   replace = T)
+  theta_j <- data.frame(matrix(NA,nrow = n,ncol=8))
+  mu_post <- rep(NA,n)
+  for(i in 1:n){
+    mu_post[i] <- rnorm(n=1,mean = mu_hat(tau = tau[i]),
+                        sd = sqrt(V_mu(tau = tau[i])))
+    
+    aux_hat_theta_j<-hat_theta_j(tau = tau[i],
+                                 mu = mu_post[i])
+    aux_V_j<- V_j(tau = tau[i])
+    for(j in 1:8){
+      theta_j[i,j] <- rnorm(n=1,mean = aux_hat_theta_j[j],
+                            sd = sqrt(aux_V_j[j]))
+    }
+  }
+  output <- data.frame(
+    tau = tau,
+    mu = mu_post
+  ) %>% bind_cols(theta_j)
+  return(output)
+}
+
+sample_post_b <- generating_joint_post(5000)
+
+
+sample_post_b <- sample_post_b %>% select(-tau,-mu) 
+
+best_school <- apply(sample_post_b,1,which.max) %>% table() %>% data.frame() %>% pull()
+
+best_school/sum(best_school)
+```
+
+```{r}
+pariwise <- matrix(NA,8,8)
+
+## pairwise comparison
+for (i in 1:8){
+  for(j in 1:8){
+    if(i!=j){
+      post_prob <- apply(sample_post_b[,c(i,j)],1,which.max) %>%
+        table() %>% data.frame() %>% pull()
+      post_prob <- post_prob/5000
+      pariwise[i,j] <- post_prob[1]
+      pariwise[j,i] <- post_prob[2]
+    }
+  }
+}
+
+colnames(pariwise) = rownames(pariwise) = c('A','B','C','D','E','F','G','H')
+
+pariwise %>% as.data.frame() %>% knitr::kable(,caption = 'Posterior probabilities') %>% kableExtra::kable_styling()
+```
 
 # EX2
 
