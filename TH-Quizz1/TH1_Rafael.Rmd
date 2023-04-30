@@ -8,11 +8,311 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr) ; library(ggplot2)
+mydir = "/Users/rafaelcatoia/MyDrive/20_UCSC/000_Courses/207-BayesianModels/TH-Quizz1/"
+mydir_fig = "/Users/rafaelcatoia/MyDrive/20_UCSC/000_Courses/207-BayesianModels/TH-Quizz1/Figures/"
+setwd(mydir)
+#install.packages('LaplacesDemon')
 ```
 
+```{r}
+table_dimension = data.frame(
+  parameter = c("mu_u","mu_v","Sigma_u","Sigma_v","sigma2","u_i","v_j"),
+  dimension = c("k","k","k x k","k x k","1","k","k")
+)
+table_dimension %>% t() %>% knitr::kable(,format = 'latex')
+```
+
+
 # Intro
+```{r}
+
+df_ratings <- data.table::fread("SimMovieRating.csv") %>% data.frame()
+df_covariates <- data.table::fread("SimMovieCovariates.csv") %>% data.frame()
+
+df_stack <- df_ratings %>% 
+  mutate(User = factor(1:nrow(df_ratings))) %>%
+  tidyr::pivot_longer(!User, names_to = "MovieID",
+                      values_to = "Rating") %>%
+  left_join(df_covariates %>%
+              transmute(MovieID=MovieID,
+                        Genre=ifelse(Action==1,'Action','Romance'),
+                        Reeves=ifelse(Reeves==1,'Yes','No')))
+
+df_stack %>% ggplot(aes(x=User,y=Rating))+
+  geom_boxplot()
+
+
+df_stack %>% ggplot(aes(x=MovieID,y=Rating,fill=Genre))+
+  geom_boxplot()
+
+df_stack %>% group_by(User,Genre) %>% 
+  summarise(Mean=mean(Rating),SD=sd(Rating),color=Genre) %>% 
+  ggplot(aes(x=User,color=Genre))+
+  facet_grid(Genre~.)+
+  geom_point(data = df_stack,
+             aes(x=User,color=Genre,y=Rating))+
+  geom_point(aes(y=Mean),color='gray70',shape=2)+
+  geom_errorbar(aes(ymin=Mean-SD,ymax=Mean+SD),
+                alpha=0.3,color='gray70')+
+  theme_bw()
+
+
+df_stack %>% ggplot(aes(x=User,color=Genre,y=Rating))+
+  geom_point()+
+  facet_grid(Genre~Reeves) +  theme_bw()
+
+df_stack %>% ggplot(aes(x=MovieID,color=Genre,y=Rating))+
+  geom_point()+
+  facet_grid(Genre~Reeves) +  theme_bw()
+
+
+df_stack %>% ggplot(aes(x=Rating,fill=Genre))+
+  geom_density()+
+  facet_wrap(.~User) +  theme_bw()
+
+df_stack %>% ggplot(aes(x=User,y=Rating,fill=Reeves,color=Reeves,shape=Reeves))+ facet_wrap(Genre~.)+
+  geom_point() +  theme_bw()
+```
+
+
+```{r user_mean_sd}
+pl_user_mean_sd <- df_stack %>% group_by(User) %>% 
+  summarise(Average=round(mean(Rating),2),SD=sd(Rating)) %>%
+  ggplot(aes(x=User,y=Average))+
+  geom_errorbar(aes(ymin=Average-SD,ymax=Average+SD))+
+  geom_point(color='firebrick')+
+  theme_bw(base_size = 14 )
+
+ggsave(path = mydir_fig,'pl_user_mean_sd.pdf',
+       pl_user_mean_sd,width = 6,
+       height = 2,dpi = 200,device = 'pdf')
+```
+
+```{r movie_mean_sd}
+pl_movie_mean_sd <- df_stack %>%
+  mutate(Movie=rep(1:30,20)) %>%
+  group_by(Movie,Genre) %>% 
+  summarise(Average=round(mean(Rating),2),SD=sd(Rating)) %>%
+  ggplot(aes(x=Movie,y=Average,color=Genre))+
+  geom_errorbar(aes(ymin=Average-SD,ymax=Average+SD))+
+  geom_point()+
+  theme_bw(base_size = 14 )+
+  theme(legend.position = 'bottom')
+
+ggsave(path = mydir_fig,'pl_movie_mean_sd.pdf',
+       pl_movie_mean_sd,width = 6,
+       height = 2,dpi = 200,device = 'pdf')
+```
+
+```{r movie_reeves_mean_sd}
+pl_movie_reeves_mean_sd <- df_stack %>%
+  mutate(Movie=rep(1:30,20)) %>%
+  group_by(Movie,Reeves) %>% 
+  summarise(Average=round(mean(Rating),2),SD=sd(Rating)) %>%
+  ggplot(aes(x=Movie,y=Average,color=Reeves))+
+  geom_errorbar(aes(ymin=Average-SD,ymax=Average+SD))+
+  geom_point()+
+  theme_bw(base_size = 14 )+
+  theme(legend.position = 'bottom')
+
+ggsave(path = mydir_fig,'pl_movie_reeves_mean_sd.pdf',
+       pl_movie_reeves_mean_sd,width = 6,
+       height = 2,dpi = 200,device = 'pdf')
+```
+
+```{r movie_interaction_mean_sd}
+pl_movie_interaction_mean_sd <- df_stack %>%
+  mutate(Movie=factor(rep(1:30,20),levels=c(1:30))) %>%
+  group_by(Movie,Genre,Reeves) %>% 
+  summarise(Average=round(mean(Rating),2),SD=sd(Rating)) %>%
+  ggplot(aes(x=Movie,y=Average,color=Genre,shape=Reeves,linetype=Reeves))+
+  geom_errorbar(aes(ymin=Average-SD,ymax=Average+SD))+
+  geom_point()+
+  theme_bw(base_size = 14 )+
+  theme(legend.position = 'bottom')
+
+ggsave(path = mydir_fig,'pl_movie_interaction_mean_sd.pdf',
+       pl_movie_interaction_mean_sd,width = 6,
+       height = 3,dpi = 200,device = 'pdf')
+```
+
+
+
+# Conditionals
 
 ```{r}
-s
+# Sigma_u matrix kxk
+# Sigma_v matrix kxk
+# mu_u vector length K
+# mu_v vector length K 
+
+X <- df_ratings- mean(rowMeans(df_ratings))
+N <- dim(X)[1]
+P <- dim(X)[2] 
+K=2
+
+list.Sigma_u  <- list()
+list.mu_u <- list()
+list.Sigma_v <- list()
+list.mu_v <- list()
+list.sig2 <- list()
+list.u <- list()
+list.v <- list()
+
+
+### \begin initialization 
+list.sigma2[[1]] <- 1
+list.Sigma_u[[1]] <- diag(1,K)
+list.Sigma_v[[1]] <- diag(1,K)
+list.mu_u[[1]] <- rep(0,K)
+list.mu_v[[1]] <- rep(0,K)
+list.u[[1]] <- matrix(0,nrow=N,ncol=K)
+list.v[[1]] <- matrix(0,nrow=P,ncol=K)
+
+
+u = list.u[[1]]
+mu_u = list.mu_u[[1]]
+v = list.v[[1]]
+mu_v = list.mu_v[[1]]
+sigma2=1
+### \end initialization 
+
+### \begin generators 
+
+### -- Sigma_U
+draw.Sigma_u <- function(mu_u,u,P=30){
+  #mu_u vector k
+  #u matrix nxn
+  N=dim(u)[1]
+  K=dim(u)[2]
+  
+  nu <- (N +1) * K + P + 1
+  
+  matrix_S <- diag(1,k) + mu_u%*%t(mu_u)
+  ## initializing loop
+  for (i in 1:N){
+    matrix_S <- matrix_S + (u[i,]-mu_u)%*%t(u[i,]-mu_u)
+  }
+  return(LaplacesDemon::rinvwishart(nu,matrix_S))
+}
+
+### -- Sigma_V
+draw.Sigma_v <- function(mu_v,v,P=30){
+  #mu_u vector k
+  #u matrix nxn
+  K=dim(v)[2]
+  nu <- (P +1) * K + P + 1
+  
+  matrix_S <- diag(1,k) + mu_v%*%t(mu_v)
+  ## initializing loop
+  for (i in 1:P){
+    matrix_S <- matrix_S + (v[i,]-mu_v)%*%t(v[i,]-mu_v)
+  }
+  return(LaplacesDemon::rinvwishart(nu,matrix_S))
+}
+
+### -- sigma2
+draw.sigma2 <- function(u,v,X=X){
+  N = dim(u)[1]
+  P = dim(v)[1]
+  K = dim(v)[2]
+  shape <- (N+P+2)/2 -1
+  scale <- 0
+  for(i in 1:N){
+    for(j in 1:P){
+      scale <- scale + (as.numeric(X[i,j]-t(u[i,])%*%v[j,])^2)/2
+    }
+  }
+  return(LaplacesDemon::rinvgamma(n = 1,shape,scale))
+}
+
+### mu_u
+draw.mu_u <- function(Sigma_u,u){
+  N = dim(u)[1]
+  S_post = Sigma_u/(N+1)
+  bar_u <- colMeans(u)
+  mean_post = bar_u*N/(N+1)
+  return(mvtnorm::rmvnorm(1,mean_post,S_post)[1,])
+}
+
+
+### mu_v
+draw.mu_v <- function(Sigma_v,v){
+  P = dim(v)[1]
+  S_post = Sigma_v/(P+1)
+  bar_v <- colMeans(v)
+  mean_post = bar_v*P/(P+1)
+  return(mvtnorm::rmvnorm(1,mean_post,S_post)[1,])
+}
+
+### u
+draw.u <- function(Sigma_u,sigma2,v,mu_u,X = X,K=2){
+  ## every row is a mvnorm
+  N <- dim(u)[1]
+  P <- dim(v)[1]
+  matrix_U <- matrix(NA,nrow = N,ncol=K)
+  ## initializing
+  
+  for (i in 1:N){
+    S <- Sigma_u
+    mu <- mu_u
+    
+    for (j in 1:P){
+      mu0 =  mu
+      Lamb0 =  S
+      inv_Sig <- v[j,]%*%t(v[j,])/sigma2
+      
+      ybar <- rep(0,K)
+      ybar[1] <- X[i,j]/v[j,1]
+      
+      ## updating parameters
+      inv_Lamb0 <- solve(Lamb0)
+      S <- solve( inv_Lamb0 + inv_Sig)
+      mu <- S%*%(inv_Lamb0%*%mu0+inv_Sig%*%ybar)
+      mu <- mu[,1]
+    }
+    matrix_U[i,] <- mvtnorm::rmvnorm(1,mu,S)
+  }
+  return(matrix_U)
+}
+  
+
+### v
+draw.v <- function(Sigma_v,sigma2,u,mu_v,X = X,K=2){
+  ## every row is a mvnorm
+  N <- dim(u)[1]
+  P <- dim(v)[1]
+  matrix_V <- matrix(NA,nrow = P,ncol=K)
+  ## initializing
+  
+  for (j in 1:P){
+    S <- Sigma_v
+    mu <- mu_v
+    
+    for (i in 1:N){
+      mu0 =  mu
+      Lamb0 =  S
+      inv_Sig <- u[i,]%*%t(u[i,])/sigma2
+      
+      ybar <- rep(0,K)
+      ybar[1] <- X[i,j]/u[i,1]
+      
+      ## updating parameters
+      inv_Lamb0 <- solve(Lamb0)
+      S <- solve(inv_Lamb0 + inv_Sig)
+      mu <- S%*%(inv_Lamb0%*%mu0+inv_Sig%*%ybar)
+      mu <- mu[,1]
+    }
+    matrix_V[j,] <- mvtnorm::rmvnorm(1,mu,S)
+  }
+  return(matrix_V)
+}
+### \end generators 
+```
+
+```{r Gibbs}
+
+
+
 ```
 
