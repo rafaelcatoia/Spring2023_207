@@ -19,7 +19,7 @@ table_dimension = data.frame(
   parameter = c("mu_u","mu_v","Sigma_u","Sigma_v","sigma2","u_i","v_j"),
   dimension = c("k","k","k x k","k x k","1","k","k")
 )
-table_dimension %>% t() %>% knitr::kable(,format = 'latex')
+#table_dimension %>% t() %>% knitr::kable(,format = 'latex')
 ```
 
 
@@ -146,39 +146,6 @@ ggsave(path = mydir_fig,'pl_movie_interaction_mean_sd.pdf',
 # mu_u vector length K
 # mu_v vector length K 
 
-X <- df_ratings- mean(rowMeans(df_ratings))
-N <- dim(X)[1]
-P <- dim(X)[2] 
-K=2
-
-list.Sigma_u  <- list()
-list.mu_u <- list()
-list.Sigma_v <- list()
-list.mu_v <- list()
-list.sig2 <- list()
-list.u <- list()
-list.v <- list()
-
-
-### \begin initialization 
-list.sigma2[[1]] <- 1
-list.Sigma_u[[1]] <- diag(1,K)
-list.Sigma_v[[1]] <- diag(1,K)
-list.mu_u[[1]] <- rep(0,K)
-list.mu_v[[1]] <- rep(0,K)
-list.u[[1]] <- matrix(0,nrow=N,ncol=K)
-list.v[[1]] <- matrix(0,nrow=P,ncol=K)
-
-
-u = list.u[[1]]
-mu_u = list.mu_u[[1]]
-v = list.v[[1]]
-mu_v = list.mu_v[[1]]
-sigma2=1
-### \end initialization 
-
-### \begin generators 
-
 ### -- Sigma_U
 draw.Sigma_u <- function(mu_u,u,P=30){
   #mu_u vector k
@@ -188,7 +155,7 @@ draw.Sigma_u <- function(mu_u,u,P=30){
   
   nu <- (N +1) * K + P + 1
   
-  matrix_S <- diag(1,k) + mu_u%*%t(mu_u)
+  matrix_S <- diag(1,K) + mu_u%*%t(mu_u)
   ## initializing loop
   for (i in 1:N){
     matrix_S <- matrix_S + (u[i,]-mu_u)%*%t(u[i,]-mu_u)
@@ -203,7 +170,7 @@ draw.Sigma_v <- function(mu_v,v,P=30){
   K=dim(v)[2]
   nu <- (P +1) * K + P + 1
   
-  matrix_S <- diag(1,k) + mu_v%*%t(mu_v)
+  matrix_S <- diag(1,K) + mu_v%*%t(mu_v)
   ## initializing loop
   for (i in 1:P){
     matrix_S <- matrix_S + (v[i,]-mu_v)%*%t(v[i,]-mu_v)
@@ -215,8 +182,7 @@ draw.Sigma_v <- function(mu_v,v,P=30){
 draw.sigma2 <- function(u,v,X=X){
   N = dim(u)[1]
   P = dim(v)[1]
-  K = dim(v)[2]
-  shape <- (N+P+2)/2 -1
+  shape <- (N*P)/2 + 2
   scale <- 0
   for(i in 1:N){
     for(j in 1:P){
@@ -248,7 +214,7 @@ draw.mu_v <- function(Sigma_v,v){
 ### u
 draw.u <- function(Sigma_u,sigma2,v,mu_u,X = X,K=2){
   ## every row is a mvnorm
-  N <- dim(u)[1]
+  N <- nrow(X)
   P <- dim(v)[1]
   matrix_U <- matrix(NA,nrow = N,ncol=K)
   ## initializing
@@ -281,7 +247,7 @@ draw.u <- function(Sigma_u,sigma2,v,mu_u,X = X,K=2){
 draw.v <- function(Sigma_v,sigma2,u,mu_v,X = X,K=2){
   ## every row is a mvnorm
   N <- dim(u)[1]
-  P <- dim(v)[1]
+  P <- ncol(X)
   matrix_V <- matrix(NA,nrow = P,ncol=K)
   ## initializing
   
@@ -312,7 +278,204 @@ draw.v <- function(Sigma_v,sigma2,u,mu_v,X = X,K=2){
 
 ```{r Gibbs}
 
+X <- df_ratings- mean(rowMeans(df_ratings))
+N <- dim(X)[1]
+P <- dim(X)[2] 
+K=2
+
+list.Sigma_u  <- list()
+list.mu_u <- list()
+list.Sigma_v <- list()
+list.mu_v <- list()
+list.sigma2 <- list()
+list.u <- list()
+list.v <- list()
+
+set.seed(57)
+nGibbs = 100
+burnin = 1000
+jump = 20
+nit = nGibbs*jump + burnin
+## initial values
+list.sigma2[[1]] <- 1/2
+list.Sigma_u[[1]] <- diag(1,K)
+list.Sigma_v[[1]] <- diag(1,K)
+list.mu_u[[1]] <- rep(0,K)
+list.mu_v[[1]] <- rep(0,K)
+list.u[[1]] <- matrix(1,nrow=N,ncol=K)
+list.v[[1]] <- matrix(1,nrow=P,ncol=K)
 
 
+for(it in 2:nit){
+  ## initial values
+  list.sigma2[[it]] <- draw.sigma2(
+    u = list.u[[it-1]],v = list.v[[it-1]],X = X)
+  
+  list.Sigma_u[[it]] <- draw.Sigma_u(
+    mu_u = list.mu_u[[it-1]],u = list.u[[it-1]])
+  
+  list.Sigma_v[[it]] <- draw.Sigma_v(
+    mu_v = list.mu_v[[it-1]],v = list.v[[it-1]])
+  
+  list.mu_u[[it]] <- draw.mu_u(
+    Sigma_u = list.Sigma_u[[it]],u = list.u[[it-1]])
+  
+  list.mu_v[[it]] <- draw.mu_v(
+    Sigma_v = list.Sigma_v[[it]],v = list.u[[it-1]])
+  
+  list.u[[it]] <- draw.u(
+    Sigma_u = list.Sigma_u[[it]],
+    sigma2 = list.sigma2[[it]],
+    mu_u = list.mu_u[[it]],
+    v = list.v[[it-1]],
+    X = X)
+  
+  list.v[[it]] <- draw.v(
+    Sigma_v = list.Sigma_v[[it]],
+    sigma2 = list.sigma2[[it]],
+    mu_v = list.mu_v[[it]],
+    u = list.u[[it]],
+    X = X)
+  if(it%%50==0){
+  cat(paste('seed=57, iteration ',it,'------------------------------ \n'))
+  }
+}
+
+### Saving chain ---------------------------
+saveRDS(list.sigma2,file = 'list.sigma2')
+saveRDS(list.Sigma_u,file = 'list.Sigma_u')
+saveRDS(list.Sigma_v,file = 'list.Sigma_v')
+saveRDS(list.mu_u,file = 'list.mu_u')
+saveRDS(list.mu_v,file = 'list.mu_v')
+saveRDS(list.u,file = 'list.u')
+saveRDS(list.v,file = 'list.v')
+###
 ```
+
+```{r}
+## cleaning the chain::
+chain_positions <- seq(burnin+1,(nGibbs*jump + burnin),jump)
+chain_sigma2<- list.sigma2[chain_positions] 
+chain_Sigma_u <- list.Sigma_u[chain_positions]
+chain_Sigma_v <- list.Sigma_v[chain_positions]
+chain_mu_u <- list.mu_u[chain_positions] 
+chain_mu_v <- list.mu_v[chain_positions] 
+chain_u <- list.u[chain_positions]
+chain_v <- list.v[chain_positions]
+```
+
+```{r}
+verifying_convergence_sigma <- function(aux_list){
+  chain <-plyr::laply(aux_list, function(el){el})
+  par(mfrow=c(1,2))
+  plot(chain[,1,1],type = 'l')
+  acf(chain[,1,1])
+  par(mfrow=c(1,1))
+}
+
+verifying_convergence_mu <- function(aux_list){
+  chain <-plyr::laply(aux_list, function(el){el})
+  par(mfrow=c(1,2))
+  plot(chain[,1],type = 'l')
+  acf(chain[,1])
+  par(mfrow=c(1,1))
+}
+
+
+verifying_convergence_latent <- function(aux_list){
+  chain <-plyr::laply(aux_list, function(el){el})
+  par(mfrow=c(1,2))
+  plot(chain[,1,1],type = 'l')
+  acf(chain[,1,1])
+  par(mfrow=c(1,1))
+}
+
+plot(unlist(chain_sigma2),type='l')
+acf(unlist(chain_sigma2))
+
+verifying_convergence_sigma(chain_Sigma_u)
+verifying_convergence_sigma(chain_Sigma_v)
+verifying_convergence_mu(chain_mu_u)
+verifying_convergence_mu(chain_mu_v)
+verifying_convergence_latent(chain_u)
+verifying_convergence_latent(chain_v)
+```
+
+### 
+```{r}
+u_post <- plyr::laply(chain_u, function(el){el})
+v_post <- plyr::laply(chain_v, function(el){el})
+dim(v_post)
+
+#expected post u
+apply(u_post, c(2,3), mean)
+#expected post v
+expect_post_v <- apply(v_post, c(2,3), mean)
+
+check_covars <- data.frame(
+  Vk1 = expect_post_v[,1],
+  Vk2 = expect_post_v[,2],
+  reeves=ifelse(df_covariates$Reeves==1,'Y','N'),
+  genre=ifelse(df_covariates$Action==1,'Action','Romance')
+  )
+
+check_covars %>% ggplot(
+  aes(x=Vk1,y=Vk2,color=genre,shape=reeves)
+)+geom_point()
+  
+X_hat <- matrix(NA,20,30)
+vec_prod <- numeric(length = dim(v_post)[1])
+for(i in 1:dim(u_post)[2]){
+  for(j in 1:dim(v_post)[2]){
+    vec_prod <- numeric(length = dim(v_post)[1])
+    for(b in 1:dim(v_post)[1]){
+      vec_prod[b]<- u_post[b,i,]%*%v_post[b,j,]
+    }
+    X_hat[i,j] <- mean(vec_prod)
+  }
+}
+
+X_stacked <- X %>% 
+  mutate(User = factor(1:nrow(X))) %>%
+  tidyr::pivot_longer(!User, names_to = "MovieID",
+                      values_to = "Rating") 
+
+X_hat <- data.frame(X_hat) 
+colnames(X_hat) <- colnames(df_ratings)
+X_hat_stacked <- X_hat %>% data.frame() %>% 
+  mutate(User = factor(1:nrow(X_hat))) %>%
+  tidyr::pivot_longer(!User, names_to = "MovieID",
+                      values_to = "Rating") 
+
+
+bind_rows(X_stacked %>% mutate(),X_hat_stacked)
+
+
+plot(X_stacked$Rating+mean(rowMeans(df_ratings)),X_hat_stacked$Rating+mean(rowMeans(df_ratings)))
+```
+
+
+```{r}
+df_stack %>% select(MovieID,Genre,Reeves) %>% distinct() %>% knitr::kable() %>% kableExtra::kable_styling()
+
+expected_v_post <- apply(v_post,MARGIN = c(2,3),FUN = mean)
+expected_u_post <- apply(u_post,MARGIN = c(2,3),FUN = mean)
+
+expected_v_post <- cbind.data.frame(
+  v1=expected_v_post[,1],
+  v2=expected_v_post[,2],
+  df_stack %>% select(Reeves,MovieID,Genre) %>% distinct() )
+
+expected_v_post %>% ggplot(aes(x=v1,y=v2,shape=Reeves,color=Genre))+
+  geom_point()
+
+
+
+v_post_mean <- function(v_post){
+  v_post_expected <- plyr::adply(v_post,function(el){mean(el)})
+}
+v_post[1,,]
+```
+
+
 
