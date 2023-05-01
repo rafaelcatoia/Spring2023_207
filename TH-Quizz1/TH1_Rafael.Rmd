@@ -292,9 +292,9 @@ list.u <- list()
 list.v <- list()
 
 set.seed(57)
-nGibbs = 100
-burnin = 1000
-jump = 20
+nGibbs = 1000
+burnin = 5000
+jump = 50
 nit = nGibbs*jump + burnin
 ## initial values
 list.sigma2[[1]] <- 1/2

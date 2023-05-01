@@ -167,13 +167,13 @@ burnin = 100
 jump = 10
 nit = nGibbs*jump + burnin
 ## initial values
-list.sigma2[[1]] <- 1
+list.sigma2[[1]] <- 1/2
 list.Sigma_u[[1]] <- diag(1,K)
 list.Sigma_v[[1]] <- diag(1,K)
 list.mu_u[[1]] <- rep(0,K)
 list.mu_v[[1]] <- rep(0,K)
-list.u[[1]] <- matrix(0.1,nrow=N,ncol=K)
-list.v[[1]] <- matrix(0.1,nrow=P,ncol=K)
+list.u[[1]] <- matrix(1,nrow=N,ncol=K)
+list.v[[1]] <- matrix(1,nrow=P,ncol=K)
 
 
 for(it in 2:nit){
