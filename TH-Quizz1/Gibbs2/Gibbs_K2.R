@@ -95,13 +95,13 @@ for(it in 2:nit){
 }
 
 ### Saving chain ---------------------------
-# saveRDS(list.sigma2,file = 'k1_list.sigma2')
-# saveRDS(list.Sigma_u,file = 'k1_list.Sigma_u')
-# saveRDS(list.Sigma_v,file = 'k1_list.Sigma_v')
-# saveRDS(list.mu_u,file = 'k1_list.mu_u')
-# saveRDS(list.mu_v,file = 'k1_list.mu_v')
-# saveRDS(list.u,file = 'k1_list.u')
-# saveRDS(list.v,file = 'k1_list.v')
+saveRDS(list.sigma2,file = 'k1_list.sigma2')
+saveRDS(list.Sigma_u,file = 'k1_list.Sigma_u')
+saveRDS(list.Sigma_v,file = 'k1_list.Sigma_v')
+saveRDS(list.mu_u,file = 'k1_list.mu_u')
+saveRDS(list.mu_v,file = 'k1_list.mu_v')
+saveRDS(list.u,file = 'k1_list.u')
+saveRDS(list.v,file = 'k1_list.v')
 ###
 
 
