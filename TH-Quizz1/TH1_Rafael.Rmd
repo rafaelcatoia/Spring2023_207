@@ -292,9 +292,9 @@ list.u <- list()
 list.v <- list()
 
 set.seed(57)
-nGibbs = 1000
-burnin = 5000
-jump = 50
+nGibbs = 300
+burnin = 1000
+jump = 20
 nit = nGibbs*jump + burnin
 ## initial values
 list.sigma2[[1]] <- 1/2
@@ -302,8 +302,8 @@ list.Sigma_u[[1]] <- diag(1,K)
 list.Sigma_v[[1]] <- diag(1,K)
 list.mu_u[[1]] <- rep(0,K)
 list.mu_v[[1]] <- rep(0,K)
-list.u[[1]] <- matrix(1,nrow=N,ncol=K)
-list.v[[1]] <- matrix(1,nrow=P,ncol=K)
+list.u[[1]] <- matrix(0.5,nrow=N,ncol=K)
+list.v[[1]] <- matrix(0.5,nrow=P,ncol=K)
 
 
 for(it in 2:nit){
@@ -342,13 +342,13 @@ for(it in 2:nit){
 }
 
 ### Saving chain ---------------------------
-saveRDS(list.sigma2,file = 'list.sigma2')
-saveRDS(list.Sigma_u,file = 'list.Sigma_u')
-saveRDS(list.Sigma_v,file = 'list.Sigma_v')
-saveRDS(list.mu_u,file = 'list.mu_u')
-saveRDS(list.mu_v,file = 'list.mu_v')
-saveRDS(list.u,file = 'list.u')
-saveRDS(list.v,file = 'list.v')
+# saveRDS(list.sigma2,file = 'list.sigma2')
+# saveRDS(list.Sigma_u,file = 'list.Sigma_u')
+# saveRDS(list.Sigma_v,file = 'list.Sigma_v')
+# saveRDS(list.mu_u,file = 'list.mu_u')
+# saveRDS(list.mu_v,file = 'list.mu_v')
+# saveRDS(list.u,file = 'list.u')
+# saveRDS(list.v,file = 'list.v')
 ###
 ```
 
@@ -393,11 +393,22 @@ verifying_convergence_latent <- function(aux_list){
 plot(unlist(chain_sigma2),type='l')
 acf(unlist(chain_sigma2))
 
+verifying_convergence_sigma(list.Sigma_u)
 verifying_convergence_sigma(chain_Sigma_u)
+
+verifying_convergence_sigma(list.Sigma_v)
 verifying_convergence_sigma(chain_Sigma_v)
+
+verifying_convergence_mu(list.mu_u)
 verifying_convergence_mu(chain_mu_u)
+
+verifying_convergence_mu(list.mu_v)
 verifying_convergence_mu(chain_mu_v)
+
+verifying_convergence_latent(list.u)
 verifying_convergence_latent(chain_u)
+
+verifying_convergence_latent(list.v)
 verifying_convergence_latent(chain_v)
 ```
 
