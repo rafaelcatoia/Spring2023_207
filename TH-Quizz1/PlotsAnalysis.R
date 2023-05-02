@@ -53,6 +53,8 @@ rm(list.sigma2,list.Sigma_u,list.Sigma_v,list.mu_u,list.mu_v,list.u,list.v)
 
 ## loading data::
 library(dplyr) ; library(ggplot2)
+mydir = "/Users/rafaelcatoia/MyDrive/20_UCSC/000_Courses/207-BayesianModels/TH-Quizz1/"
+setwd(mydir)
 
 df_ratings <- data.table::fread("SimMovieRating.csv") %>% data.frame()
 df_covariates <- data.table::fread("SimMovieCovariates.csv") %>% data.frame()
@@ -92,8 +94,10 @@ p2 = df_stack %>% select(Movie,Genre,Reeves,
   ggplot(aes(x=ExpecPostVk1,y=ExpecPostVk2,color=Genre,shape=Reeves))+
   geom_point(alpha=0.5,size=5)+theme_bw(base_size = 16)+theme(legend.position = 'bottom')+
   ggtitle('k=2')
+
 ggsave(filename = 'v_inference.pdf',path = 'Figures/',
-        ggpubr::ggarrange(p1,p2,common.legend = TRUE, legend="bottom",nrow = 1),device = 'pdf',width = 8,height=4,dpi=1000)
+        ggpubr::ggarrange(p1,p2,common.legend = TRUE, legend="bottom",nrow = 1),
+       device = 'pdf',width = 8,height=4,dpi=1000)
 
 
 ######## ----------------------
@@ -102,17 +106,17 @@ ggsave(filename = 'v_inference.pdf',path = 'Figures/',
 v_post <- plyr::laply(chain_k1_v,function(el){el})
 u_post <- plyr::laply(chain_k1_u,function(el){el})
 
-
-mean(u_post[,1]*v_post[,3])
-
 X_hat <- matrix(NA,20,30)
-
 for(i in 1:dim(u_post)[2]){
   for(j in 1:dim(v_post)[2]){
-    X_hat[i,j] <- mean(u_post[,i]*v_post[,j])
+    vec_prod <- numeric(length = length(chain_k1_u))
+    for(b in 1:length(chain_k1_u)){
+      vec_prod[b] = chain_k1_u[[b]][i] * chain_k1_v[[b]][j]
+    }
+    X_hat[i,j] <- mean(vec_prod)
   }
 }
-
+  
 X_hat=X_hat+mean(rowMeans(df_ratings))
 colnames(X_hat) <- colnames(df_ratings)
 X_hat_stacked <- X_hat %>% data.frame() %>% 
@@ -148,13 +152,21 @@ X_hat_stacked <- X_hat %>% data.frame() %>%
 
 df_stack = df_stack %>% left_join(X_hat_stacked)
 
-df_stack %>% select(Rating,FitedX_k1,Genre,Reeves) %>% distinct() %>% 
-  ggplot(aes(x=Rating,y=FitedX_k1,color=Genre,shape=Reeves))+
-  geom_point(alpha=0.5,size=4)+theme_bw(base_size = 16)+theme(legend.position = 'bottom')+
-  geom_abline(slope=1, intercept = 0)+
-  facet_wrap(.~Genre)+
+
+p1 <- df_stack %>% select(Rating,FitedX_k1,Genre,Reeves) %>% distinct() %>% 
+  ggplot(aes(x=Rating,y=FitedX_k1))+ylab('Fitted X - k=1')+
+  geom_point(alpha=0.5,size=3)+theme_bw(base_size = 16)+theme(legend.position = 'bottom')+
+  geom_abline(slope=1, intercept = 0)+xlim(0,10)+ylim(0,10)+
+  ggtitle('k=1')
+
+p2 <- df_stack %>% select(Rating,FitedX_k2,Genre,Reeves) %>% distinct() %>% 
+  ggplot(aes(x=Rating,y=FitedX_k2))+ylab('Fitted X - k=2')+
+  geom_point(alpha=0.5,size=3)+theme_bw(base_size = 16)+theme(legend.position = 'bottom')+
+  geom_abline(slope=1, intercept = 0)+xlim(0,10)+ylim(0,10)+
   ggtitle('k=2')
 
-df_stack %>% select(Rating,FitedX_k1,Genre,Reeves) %>% distinct() %>% 
-  group_by(Reeves) %>% summarise(n())
+ggsave(filename = 'rating_fitted.pdf',path = 'Figures/',
+       ggpubr::ggarrange(p1,p2,common.legend = TRUE, legend="bottom",nrow = 1),
+       device = 'pdf',width = 8,height=4,dpi=1000)
+
 
